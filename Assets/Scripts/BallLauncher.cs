@@ -6,16 +6,40 @@ using UnityEngine;
 public class BallLauncher : MonoBehaviour
 {   
     [SerializeField]
-    private GameObject ballPrefab;
+    private Ball ballPrefab;
+
+    private List<Ball> balls = new List<Ball>();
 
     private LaunchPreview launchPreview;
+    private BlockSpawner blockSpawner;
 
     private Vector3 StartDragPosition;
     private Vector3 endDragPosition;
+    private int ballsLoad;
 
     private void Awake()
     {
         launchPreview = GetComponent<LaunchPreview>();
+        blockSpawner = FindObjectOfType<BlockSpawner>();
+        CreateBall();
+    }
+
+    public void ReturnBall()
+    {
+        ballsLoad++;
+
+        if (ballsLoad == balls.Count)
+        {
+            blockSpawner.SpawnRowOfBlocks();
+            CreateBall();
+        }
+    }
+
+    private void CreateBall()
+    {
+        var ball = Instantiate(ballPrefab);
+        balls.Add(ball);
+        ballsLoad++;
     }
 
     // Update is called once per frame
@@ -39,17 +63,25 @@ public class BallLauncher : MonoBehaviour
 
     private void EndDrag()
     {
-        Vector3 direction = endDragPosition - StartDragPosition;
-        direction.Normalize();
-
-        var ball =  Instantiate(ballPrefab, transform.position, Quaternion.identity);
-        ball.GetComponent<Rigidbody2D>().AddForce(-direction);
+        StartCoroutine(LaunchBalls());
     }
 
-    private void StartDrag(Vector3 worldPosition)
+    private IEnumerator LaunchBalls()
     {
-        StartDragPosition = worldPosition;
-        launchPreview.SetStartPoint(transform.position);
+        Vector3 direction = endDragPosition - StartDragPosition;    // Gets direction once, only for first ball and apply to all others
+        direction.Normalize();
+
+        foreach(var ball in balls)
+        {
+            ball.transform.position = transform.position;   //  Gets the position of the BallLauncher;
+            ball.gameObject.SetActive(true);
+            ball.GetComponent<Rigidbody2D>().AddForce(-direction);
+
+            yield return new WaitForSeconds(0.1f);
+        }
+
+        ballsLoad  = 0;
+
     }
 
     private void ContinueDrag(Vector3 worldPosition)
@@ -59,5 +91,12 @@ public class BallLauncher : MonoBehaviour
         Vector3 direction = endDragPosition - StartDragPosition;
 
         launchPreview.SetEndPoint(transform.position - direction);
-    } 
+    }
+
+    private void StartDrag(Vector3 worldPosition)
+    {
+        StartDragPosition = worldPosition;
+        launchPreview.SetStartPoint(transform.position);
+    }
+
 }
